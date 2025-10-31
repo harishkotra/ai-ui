@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaia Nodes Whitepaper App Generator</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Whitepaper App Generator</h1>
+        <p>Paste your whitepaper below. The AI will generate a Next.js application, streaming the response in real-time. If generation stops, click "Continue" to finish.</p>
+        
+        <form id="whitepaper-form">
+            <textarea id="whitepaper-content" placeholder="Paste your full whitepaper text or markdown here..."></textarea>
+            <button type="submit" id="generate-button">Generate</button>
+        </form>
+
+        <div id="response-container">
+            <h2>Generated Response</h2>
+            <div id="response-wrapper">
+                <pre id="response-output"><code>Your generated code will appear here...</code></pre>
+            </div>
+            <div id="continue-container" style="display: none;">
+                <button id="continue-button">Continue Generating</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Element References ---
+        const form = document.getElementById('whitepaper-form');
+        const generateButton = document.getElementById('generate-button');
+        const continueButton = document.getElementById('continue-button');
+        const continueContainer = document.getElementById('continue-container');
+        const whitepaperTextarea = document.getElementById('whitepaper-content');
+        const responseOutput = document.getElementById('response-output').querySelector('code');
+
+        // --- State Management ---
+        let originalContent = ''; // Store the initial whitepaper content
+
+        /**
+         * Core function to process a streaming response from the server.
+         * @param {string} url - The API endpoint to fetch ('/generate' or '/continue').
+         * @param {object} body - The request body.
+         */
+        async function processStream(url, body) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        break; // Stream finished
+                    }
+
+                    // Decode and process the chunk
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n\n');
+
+                    lines.forEach(line => {
+                        if (line.startsWith('data: ')) {
+                            const data = line.substring(6);
+                            try {
+                                const parsed = JSON.parse(data);
+                                if (typeof parsed === 'string') {
+                                    responseOutput.textContent += parsed;
+                                } else if (parsed.error) {
+                                    responseOutput.textContent += `\n\n[SERVER ERROR]: ${parsed.error}`;
+                                }
+                            } catch (e) {
+                                // Sometimes multiple data chunks arrive together
+                                // This is a simple way to handle it for now
+                                responseOutput.textContent += data;
+                            }
+                        }
+                    });
+                    
+                    // Auto-scroll to the bottom
+                    responseOutput.parentElement.scrollTop = responseOutput.parentElement.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Streaming failed:', error);
+                responseOutput.textContent += `\n\n[CLIENT ERROR]: Failed to connect or process stream. Please check the console.`;
+            } finally {
+                // When the stream finishes, show the continue button
+                continueContainer.style.display = 'block';
+                continueButton.disabled = false;
+                continueButton.textContent = 'Continue Generating';
+                generateButton.disabled = false; // Re-enable original button too
+                whitepaperTextarea.disabled = false;
+            }
+        }
+
+        // --- Event Listeners ---
+
+        /**
+         * Handle the initial "Generate" submission.
+         */
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const content = whitepaperTextarea.value;
+            if (!content.trim()) {
+                alert('Please paste the whitepaper content before generating.');
+                return;
+            }
+
+            // --- Reset UI for new generation ---
+            originalContent = content; // Save the content
+            responseOutput.textContent = ''; // Clear previous output
+            generateButton.disabled = true;
+            generateButton.textContent = 'Generating...';
+            whitepaperTextarea.disabled = true;
+            continueContainer.style.display = 'none'; // Hide continue button
+
+            await processStream('/generate', { content });
+        });
+
+        /**
+         * Handle the "Continue" button click.
+         */
+        continueButton.addEventListener('click', async () => {
+            const partialResponse = responseOutput.textContent;
+            
+            if (!originalContent || !partialResponse) {
+                alert('Cannot continue without original content and a partial response.');
+                return;
+            }
+
+            // --- Update UI for continuation ---
+            continueButton.disabled = true;
+            continueButton.textContent = 'Continuing...';
+            generateButton.disabled = true; // Also disable generate button during continuation
+            whitepaperTextarea.disabled = true;
+
+            await processStream('/continue', { 
+                content: originalContent, 
+                partialResponse: partialResponse 
+            });
+        });
+    </script>
+</body>
+</html>

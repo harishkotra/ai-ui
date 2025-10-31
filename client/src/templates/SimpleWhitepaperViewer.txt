@@ -1,0 +1,340 @@
+// Simple Whitepaper Viewer Template for Sandpack
+// No external dependencies needed!
+
+export const WHITEPAPER_TEMPLATE = `import React, { useState, useEffect } from 'react';
+
+export default function App() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showToc, setShowToc] = useState(true);
+  const [activeSection, setActiveSection] = useState('');
+
+  // Whitepaper content - will be injected by AI
+  const content = \`{{WHITEPAPER_CONTENT}}\`;
+  const title = "{{TITLE}}";
+  const subtitle = "{{SUBTITLE}}";
+  const author = "{{AUTHOR}}";
+  const date = "{{DATE}}";
+
+  // Extract headings for TOC
+  const headings = [];
+  const lines = content.split('\\n');
+  lines.forEach((line, index) => {
+    const match = line.match(/^(#{1,3})\\s+(.+)$/);
+    if (match) {
+      headings.push({
+        id: \`heading-\${index}\`,
+        text: match[2],
+        level: match[1].length
+      });
+    }
+  });
+
+  // Simple markdown parser
+  const parseMarkdown = (text) => {
+    if (!text) return '';
+
+    // Filter by search query
+    if (searchQuery) {
+      const filtered = text.split('\\n')
+        .filter(line => line.toLowerCase().includes(searchQuery.toLowerCase()))
+        .join('\\n');
+      text = filtered;
+    }
+
+    return text.split('\\n').map((line, i) => {
+      // Headers
+      if (line.startsWith('### ')) {
+        return <h3 key={i} style={styles.h3}>{line.slice(4)}</h3>;
+      }
+      if (line.startsWith('## ')) {
+        return <h2 key={i} style={styles.h2}>{line.slice(3)}</h2>;
+      }
+      if (line.startsWith('# ')) {
+        return <h1 key={i} style={styles.h1}>{line.slice(2)}</h1>;
+      }
+
+      // Lists
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        return <li key={i} style={styles.li}>{line.slice(2)}</li>;
+      }
+      if (line.match(/^\\d+\\. /)) {
+        return <li key={i} style={styles.li}>{line.replace(/^\\d+\\. /, '')}</li>;
+      }
+
+      // Blockquote
+      if (line.startsWith('> ')) {
+        return <blockquote key={i} style={styles.blockquote}>{line.slice(2)}</blockquote>;
+      }
+
+      // Code blocks (simplified)
+      if (line.startsWith(\`\\\`\\\`\`)) {
+        return <div key={i} style={styles.codeBlock}>{line.slice(3)}</div>;
+      }
+
+      // Empty line
+      if (line.trim() === '') {
+        return <br key={i} />;
+      }
+
+      // Regular paragraph
+      return <p key={i} style={styles.p}>{line}</p>;
+    });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div style={styles.container}>
+      {/* Header */}
+      <header style={styles.header}>
+        <div>
+          <h1 style={styles.headerTitle}>{title}</h1>
+          {subtitle && <p style={styles.headerSubtitle}>{subtitle}</p>}
+        </div>
+        <div style={styles.buttonGroup}>
+          <button
+            onClick={() => setShowToc(!showToc)}
+            style={styles.button}
+          >
+            {showToc ? '📖 Hide TOC' : '📖 Show TOC'}
+          </button>
+          <button
+            onClick={() => window.print()}
+            style={styles.button}
+          >
+            📥 PDF
+          </button>
+        </div>
+      </header>
+
+      <div style={styles.mainLayout}>
+        {/* Table of Contents */}
+        {showToc && (
+          <aside style={styles.sidebar}>
+            <h2 style={styles.tocTitle}>📑 Table of Contents</h2>
+            {headings.length === 0 ? (
+              <p style={styles.noHeadings}>No headings found</p>
+            ) : (
+              <nav>
+                {headings.map((heading) => (
+                  <a
+                    key={heading.id}
+                    href={\`#\${heading.id}\`}
+                    style={{
+                      ...styles.tocLink,
+                      paddingLeft: \`\${(heading.level - 1) * 16}px\`,
+                      fontSize: heading.level === 1 ? '0.9rem' : '0.85rem',
+                    }}
+                  >
+                    {heading.text}
+                  </a>
+                ))}
+              </nav>
+            )}
+          </aside>
+        )}
+
+        {/* Main Content */}
+        <main style={styles.main}>
+          {/* Search */}
+          <div style={styles.searchContainer}>
+            <input
+              type="text"
+              placeholder="🔍 Search whitepaper..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+
+          {/* Metadata */}
+          {(author || date) && (
+            <div style={styles.metadata}>
+              {author && <div>✍️ <strong>Author:</strong> {author}</div>}
+              {date && <div>📅 <strong>Date:</strong> {date}</div>}
+            </div>
+          )}
+
+          {/* Content */}
+          <article style={styles.article}>
+            {parseMarkdown(content)}
+          </article>
+        </main>
+      </div>
+
+      {/* Back to Top Button */}
+      <button
+        onClick={scrollToTop}
+        style={styles.backToTop}
+      >
+        ↑
+      </button>
+    </div>
+  );
+}
+
+const styles = {
+  container: {
+    minHeight: '100vh',
+    background: '#0B1220',
+    color: '#E5E7EB',
+    fontFamily: 'Inter, -apple-system, sans-serif',
+  },
+  header: {
+    position: 'sticky',
+    top: 0,
+    background: 'linear-gradient(135deg, #0B1020 0%, #1E40AF 100%)',
+    borderBottom: '2px solid #4F8AE6',
+    padding: '1.5rem 2rem',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+    zIndex: 100,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    margin: 0,
+    fontSize: '1.5rem',
+    color: '#E5E7EB',
+  },
+  headerSubtitle: {
+    margin: '0.25rem 0 0',
+    fontSize: '0.875rem',
+    color: '#93C5FD',
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  button: {
+    padding: '0.5rem 1rem',
+    background: '#334155',
+    border: 'none',
+    borderRadius: '0.5rem',
+    color: '#E5E7EB',
+    fontSize: '0.875rem',
+    cursor: 'pointer',
+  },
+  mainLayout: {
+    display: 'flex',
+    minHeight: 'calc(100vh - 80px)',
+  },
+  sidebar: {
+    width: '280px',
+    background: '#0F172A',
+    borderRight: '1px solid #334155',
+    padding: '1.5rem',
+    overflowY: 'auto',
+    maxHeight: 'calc(100vh - 80px)',
+  },
+  tocTitle: {
+    fontSize: '1rem',
+    marginBottom: '1rem',
+    color: '#93C5FD',
+  },
+  noHeadings: {
+    fontSize: '0.875rem',
+    color: '#64748B',
+  },
+  tocLink: {
+    display: 'block',
+    padding: '0.5rem',
+    color: '#94A3B8',
+    textDecoration: 'none',
+    borderRadius: '0.5rem',
+    marginBottom: '0.25rem',
+  },
+  main: {
+    flex: 1,
+    padding: '2rem',
+    maxWidth: '900px',
+    margin: '0 auto',
+  },
+  searchContainer: {
+    marginBottom: '2rem',
+  },
+  searchInput: {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    background: '#0F172A',
+    border: '1px solid #334155',
+    borderRadius: '0.5rem',
+    color: '#E5E7EB',
+    fontSize: '0.9rem',
+  },
+  metadata: {
+    padding: '1rem',
+    background: '#0F172A',
+    borderRadius: '0.5rem',
+    marginBottom: '2rem',
+    fontSize: '0.875rem',
+    color: '#94A3B8',
+  },
+  article: {
+    fontSize: '1rem',
+    lineHeight: '1.75',
+    color: '#E5E7EB',
+  },
+  h1: {
+    fontSize: '2.5rem',
+    fontWeight: '700',
+    marginTop: '2rem',
+    marginBottom: '1rem',
+    color: '#E5E7EB',
+  },
+  h2: {
+    fontSize: '2rem',
+    fontWeight: '600',
+    marginTop: '2rem',
+    marginBottom: '0.75rem',
+    color: '#93C5FD',
+  },
+  h3: {
+    fontSize: '1.5rem',
+    fontWeight: '600',
+    marginTop: '1.5rem',
+    marginBottom: '0.5rem',
+    color: '#93C5FD',
+  },
+  p: {
+    marginBottom: '1rem',
+  },
+  li: {
+    marginLeft: '1.5rem',
+    marginBottom: '0.5rem',
+  },
+  blockquote: {
+    borderLeft: '4px solid #4F8AE6',
+    paddingLeft: '1rem',
+    margin: '1rem 0',
+    fontStyle: 'italic',
+    color: '#94A3B8',
+  },
+  codeBlock: {
+    background: '#1E293B',
+    padding: '1rem',
+    borderRadius: '0.5rem',
+    overflowX: 'auto',
+    fontSize: '0.9em',
+    color: '#E5E7EB',
+    marginBottom: '1rem',
+    fontFamily: 'Monaco, Consolas, monospace',
+  },
+  backToTop: {
+    position: 'fixed',
+    bottom: '2rem',
+    right: '2rem',
+    background: '#4F8AE6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '50%',
+    width: '3rem',
+    height: '3rem',
+    fontSize: '1.5rem',
+    cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(79, 138, 230, 0.4)',
+  },
+};
+`;
