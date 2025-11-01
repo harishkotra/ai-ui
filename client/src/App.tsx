@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Sandpack } from '@codesandbox/sandpack-react';
 import { sandpackDark } from '@codesandbox/sandpack-themes';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import './App.css';
 
 interface FileStructure {
@@ -13,6 +15,9 @@ function App() {
   const [files, setFiles] = useState<FileStructure>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [generationTime, setGenerationTime] = useState<number>(0);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [showCodePanel, setShowCodePanel] = useState(false);
 
   const parseAIResponse = (response: string): { metadata: Record<string, string>; content: string } => {
     console.log('Parsing AI response, length:', response.length);
@@ -94,14 +99,51 @@ export default function App() {
     if (searchQuery) {
       text = text.split('\\n').filter(l => l.toLowerCase().includes(searchQuery.toLowerCase())).join('\\n');
     }
+
+    // Helper to parse inline markdown (bold, italic)
+    const parseInline = (str) => {
+      if (!str) return str;
+      const parts = [];
+      let lastIndex = 0;
+
+      // Match **bold**, *italic*, \u0060code\u0060 (using unicode for backtick)
+      const regex = /(\\\\*\\\\*(.+?)\\\\*\\\\*)|(\\\\*(.+?)\\\\*)|((\\u0060)(.+?)(\\u0060))/g;
+      let match;
+
+      while ((match = regex.exec(str)) !== null) {
+        // Add text before match
+        if (match.index > lastIndex) {
+          parts.push(str.substring(lastIndex, match.index));
+        }
+
+        // Add formatted match
+        if (match[1]) { // **bold**
+          parts.push(<strong key={match.index} style={{ fontWeight: 'bold' }}>{match[2]}</strong>);
+        } else if (match[3]) { // *italic*
+          parts.push(<em key={match.index} style={{ fontStyle: 'italic' }}>{match[4]}</em>);
+        } else if (match[5]) { // \u0060code\u0060
+          parts.push(<code key={match.index} style={{ background: '#1E293B', padding: '0.2rem 0.4rem', borderRadius: '0.25rem', fontSize: '0.9em', color: '#93C5FD' }}>{match[7]}</code>);
+        }
+
+        lastIndex = regex.lastIndex;
+      }
+
+      // Add remaining text
+      if (lastIndex < str.length) {
+        parts.push(str.substring(lastIndex));
+      }
+
+      return parts.length > 0 ? parts : str;
+    };
+
     return text.split('\\n').map((line, i) => {
-      if (line.startsWith('### ')) return <h3 key={i} style={{ fontSize: '1.5rem', color: '#93C5FD', marginTop: '1.5rem' }}>{line.slice(4)}</h3>;
-      if (line.startsWith('## ')) return <h2 key={i} style={{ fontSize: '2rem', color: '#93C5FD', marginTop: '2rem' }}>{line.slice(3)}</h2>;
-      if (line.startsWith('# ')) return <h1 key={i} style={{ fontSize: '2.5rem', color: '#E5E7EB', marginTop: '2rem' }}>{line.slice(2)}</h1>;
-      if (line.startsWith('- ')) return <li key={i} style={{ marginLeft: '1.5rem' }}>{line.slice(2)}</li>;
-      if (line.startsWith('> ')) return <blockquote key={i} style={{ borderLeft: '4px solid #4F8AE6', paddingLeft: '1rem', color: '#94A3B8' }}>{line.slice(2)}</blockquote>;
+      if (line.startsWith('### ')) return <h3 key={i} style={{ fontSize: '1.5rem', color: '#93C5FD', marginTop: '1.5rem' }}>{parseInline(line.slice(4))}</h3>;
+      if (line.startsWith('## ')) return <h2 key={i} style={{ fontSize: '2rem', color: '#93C5FD', marginTop: '2rem' }}>{parseInline(line.slice(3))}</h2>;
+      if (line.startsWith('# ')) return <h1 key={i} style={{ fontSize: '2.5rem', color: '#E5E7EB', marginTop: '2rem' }}>{parseInline(line.slice(2))}</h1>;
+      if (line.startsWith('- ')) return <li key={i} style={{ marginLeft: '1.5rem' }}>{parseInline(line.slice(2))}</li>;
+      if (line.startsWith('> ')) return <blockquote key={i} style={{ borderLeft: '4px solid #4F8AE6', paddingLeft: '1rem', color: '#94A3B8' }}>{parseInline(line.slice(2))}</blockquote>;
       if (line.trim() === '') return <br key={i} />;
-      return <p key={i} style={{ marginBottom: '1rem' }}>{line}</p>;
+      return <p key={i} style={{ marginBottom: '1rem' }}>{parseInline(line)}</p>;
     });
   };
 
@@ -147,7 +189,7 @@ export default function App() {
     console.log('Generated app template, length:', template.length);
 
     return {
-      '/App.tsx': template
+      '/App.js': template  // Sandpack expects .js not .tsx for the react template
     };
   };
 
@@ -176,6 +218,8 @@ export default function App() {
     setGeneratedCode('');
     setFiles({});
     setShowPreview(false);
+    setStartTime(Date.now());
+    setGenerationTime(0);
 
     try {
       const response = await fetch('/generate', {
@@ -204,8 +248,11 @@ export default function App() {
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
               if (data === '[DONE]') {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                setGenerationTime(parseFloat(elapsed));
                 setIsGenerating(false);
                 setShowPreview(true);
+                console.log(`Generation complete in ${elapsed}s`);
                 continue;
               }
 
@@ -221,7 +268,7 @@ export default function App() {
                     if (Object.keys(appFiles).length > 0) {
                       setFiles(appFiles);
                       // Update the code display to show the generated app, not AI response
-                      setGeneratedCode(appFiles['/App.tsx'] || accumulatedCode);
+                      setGeneratedCode(appFiles['/App.js'] || accumulatedCode);
                       setShowPreview(true);
                     }
                   } catch (e) {
@@ -295,7 +342,7 @@ export default function App() {
                     if (Object.keys(appFiles).length > 0) {
                       setFiles(appFiles);
                       // Update the code display to show the generated app
-                      setGeneratedCode(appFiles['/App.tsx'] || accumulatedCode);
+                      setGeneratedCode(appFiles['/App.js'] || accumulatedCode);
                       setShowPreview(true);
                     }
                   } catch (e) {
@@ -316,12 +363,132 @@ export default function App() {
     }
   };
 
+  const handleDownload = async () => {
+    if (Object.keys(files).length === 0) {
+      alert('No code to download. Generate an app first!');
+      return;
+    }
+
+    const zip = new JSZip();
+
+    // Add generated files
+    Object.entries(files).forEach(([path, content]) => {
+      // Remove leading slash for cleaner paths
+      const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+      zip.file(cleanPath, content);
+    });
+
+    // Add package.json with dependencies
+    const packageJson = {
+      name: 'whitepaper-viewer',
+      version: '1.0.0',
+      description: 'Generated whitepaper viewer app',
+      scripts: {
+        dev: 'vite',
+        build: 'vite build',
+        preview: 'vite preview'
+      },
+      dependencies: {
+        react: '^18.2.0',
+        'react-dom': '^18.2.0'
+      },
+      devDependencies: {
+        '@vitejs/plugin-react': '^4.2.0',
+        vite: '^5.0.0'
+      }
+    };
+    zip.file('package.json', JSON.stringify(packageJson, null, 2));
+
+    // Add index.html
+    const indexHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Whitepaper Viewer</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>`;
+    zip.file('index.html', indexHtml);
+
+    // Add main.jsx entry point
+    const mainJsx = `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);`;
+    zip.file('src/main.jsx', mainJsx);
+
+    // Add vite.config.js
+    const viteConfig = `import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+});`;
+    zip.file('vite.config.js', viteConfig);
+
+    // Add README
+    const readme = `# Whitepaper Viewer App
+
+Generated by AI Whitepaper App Generator
+Built by Harish Kotra
+
+## Setup
+
+1. Install dependencies:
+   \`\`\`
+   npm install
+   \`\`\`
+
+2. Run development server:
+   \`\`\`
+   npm run dev
+   \`\`\`
+
+3. Build for production:
+   \`\`\`
+   npm run build
+   \`\`\`
+
+## Features
+
+- Dark/blue theme design
+- Table of contents with auto-generated headings
+- Search functionality
+- PDF export (via browser print)
+- Responsive layout
+- Back to top button
+`;
+    zip.file('README.md', readme);
+
+    // Generate and download zip
+    const blob = await zip.generateAsync({ type: 'blob' });
+    saveAs(blob, 'whitepaper-app.zip');
+  };
+
   return (
     <div className="app-container">
       {/* Header */}
       <header className="header">
-        <h1>🚀 AI Whitepaper App Generator</h1>
-        <p>Powered by Gaia Nodes</p>
+        <div>
+          <h1>🚀 AI Whitepaper App Generator</h1>
+          <p>Powered by <a href="https://gaianet.ai/?ref=ai-ui" target="_blank">Gaia Nodes</a></p>
+        </div>
+        <button
+          onClick={() => setShowCodePanel(!showCodePanel)}
+          className="toggle-code-btn"
+          title={showCodePanel ? 'Hide code panel' : 'Show code panel'}
+        >
+          {showCodePanel ? '👁️ Hide Code' : '👁️ Show Code'}
+        </button>
       </header>
 
       {/* Main Content - Split View */}
@@ -349,7 +516,14 @@ export default function App() {
               disabled={isGenerating || !whitepaper.trim()}
               className="generate-btn"
             >
-              {isGenerating ? '⏳ Generating...' : '✨ Generate App'}
+              {isGenerating ? (
+                <>
+                  <span className="spinner"></span>
+                  Generating...
+                </>
+              ) : (
+                '✨ Generate App'
+              )}
             </button>
             {generatedCode && (
               <button
@@ -363,29 +537,47 @@ export default function App() {
           </div>
         </div>
 
-        {/* Middle Panel - Generated Code */}
-        <div className="code-panel">
-          <div className="panel-header">
-            <h2>💻 Generated Code</h2>
-            <span className="file-count">
-              {Object.keys(files).length} files
-            </span>
-          </div>
-          <div className="code-display">
-            {generatedCode ? (
-              <pre>{generatedCode}</pre>
-            ) : (
-              <div className="empty-state">
-                <p>Generated code will appear here...</p>
+        {/* Middle Panel - Generated Code (Toggleable) */}
+        {showCodePanel && (
+          <div className="code-panel">
+            <div className="panel-header">
+              <h2>💻 Generated Code</h2>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                {generationTime > 0 && (
+                  <span className="char-count" style={{ background: '#10B981' }}>
+                    ⚡ {generationTime}s
+                  </span>
+                )}
+                <span className="file-count">
+                  {Object.keys(files).length} {Object.keys(files).length === 1 ? 'file' : 'files'}
+                </span>
               </div>
-            )}
+            </div>
+            <div className="code-display">
+              {generatedCode ? (
+                <pre>{generatedCode}</pre>
+              ) : (
+                <div className="empty-state">
+                  <p>Generated code will appear here...</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Right Panel - Live Preview */}
         <div className="preview-panel">
           <div className="panel-header">
             <h2>🎨 Live Preview</h2>
+            {Object.keys(files).length > 0 && (
+              <button
+                onClick={handleDownload}
+                className="download-btn"
+                title="Download complete app code"
+              >
+                📥 Download
+              </button>
+            )}
           </div>
           <div className="preview-container">
             {showPreview && Object.keys(files).length > 0 ? (
@@ -394,7 +586,7 @@ export default function App() {
                 template="react"
                 files={files}
                 options={{
-                  showNavigator: true,
+                  showNavigator: false,
                   showTabs: true,
                   showLineNumbers: true,
                   editorHeight: '100%',
@@ -437,6 +629,13 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="footer">
+        <p>
+          Built by <a href="https://github.com/harishkotra" target="_blank" rel="noopener noreferrer">Harish Kotra</a>
+        </p>
+      </footer>
     </div>
   );
 }

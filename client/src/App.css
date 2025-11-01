@@ -19,6 +19,9 @@
   padding: 1.5rem 2rem;
   border-bottom: 2px solid #4F8AE6;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .header h1 {
@@ -37,6 +40,30 @@
   color: #93C5FD;
 }
 
+.toggle-code-btn {
+  padding: 0.5rem 1rem !important;
+  background: #334155 !important;
+  color: #93C5FD !important;
+  font-size: 0.875rem !important;
+}
+
+.toggle-code-btn:hover {
+  background: #475569 !important;
+  box-shadow: 0 4px 12px rgba(147, 197, 253, 0.2) !important;
+}
+
+.download-btn {
+  padding: 0.5rem 1rem !important;
+  background: #10B981 !important;
+  color: white !important;
+  font-size: 0.875rem !important;
+}
+
+.download-btn:hover {
+  background: #059669 !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
 /* Main Content - Split View */
 .main-content {
   flex: 1;
@@ -44,6 +71,11 @@
   grid-template-columns: 1fr 1fr 1.5fr;
   gap: 0;
   overflow: hidden;
+}
+
+/* 2-column layout when code panel is hidden */
+.main-content:has(.preview-panel):not(:has(.code-panel)) {
+  grid-template-columns: 1fr 2fr;
 }
 
 /* Panel Shared Styles */
@@ -301,4 +333,45 @@ button {
   button {
     width: 100%;
   }
+}
+
+/* Spinner Animation */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Footer */
+.footer {
+  background: #0B1020;
+  border-top: 1px solid #334155;
+  padding: 1rem 2rem;
+  text-align: center;
+  color: #64748B;
+  font-size: 0.875rem;
+}
+
+.footer p {
+  margin: 0;
+}
+
+.footer a {
+  color: #4F8AE6;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.footer a:hover {
+  color: #5A95F5;
+  text-decoration: underline;
 }

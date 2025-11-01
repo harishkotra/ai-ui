@@ -1,5 +1,8 @@
 {
   "name": "ai-ui",
+  "description": "A simple React app that converts any whitepaper into an interactive web app",
+  "author": "Harish Kotra",
+  "license": "MIT",
   "private": true,
   "version": "1.0.0",
   "type": "module",

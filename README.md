@@ -1,6 +1,6 @@
 # AI Whitepaper App Generator
 
-Transform whitepapers into beautiful, production-ready Next.js applications using AI - powered by **Gaia Nodes**.
+Transform whitepapers into beautiful, production-ready Next.js applications using AI - powered by [**Gaia Nodes**](https://gaianet.ai/?ref=ai-ui).
 
 ## Overview
 
@@ -115,15 +115,10 @@ The application will be available at:
 ## Usage
 
 1. **Open the application** at http://localhost:5173
-
 2. **Enter whitepaper content** in the left panel (supports text or markdown)
-
 3. **Click "Generate App"** to start the AI generation
-
 4. **Watch the code generate** in the middle panel as the AI streams the response
-
 5. **See the live preview** in the right panel - the app updates in real-time!
-
 6. **Continue generation** (optional) if you want to add more features
 
 ## API Endpoints
@@ -171,40 +166,6 @@ Continue generating from where the previous generation left off.
    - Sandpack bundles and runs the code in-browser
    - Shows the generated app immediately
    - Updates incrementally as more code arrives
-
-## Code Parsing
-
-The application uses regex to extract code blocks from the AI response:
-
-```typescript
-const fileRegex = /```(?:tsx?|jsx?|css|json|md)?\s*(?:\/\/ )?([\w\/.]+)\n([\s\S]*?)```/g;
-```
-
-This matches code blocks with file paths like:
-```tsx
-// app/page.tsx
-export default function Page() { ... }
-```
-
-## Design System
-
-The generated apps follow a consistent design language:
-
-**Colors:**
-- Backgrounds: `#0B1220`, `#0F172A`, `#0B1020`
-- Primary Blues: `#4F8AE6`, `#1E40AF`, `#93C5FD`
-- Text: `#E5E7EB`, `#94A3B8`
-- Borders: `#334155`
-
-**Typography:**
-- Body: Inter
-- Headings: Space Grotesk
-
-**Components:**
-- Rounded corners (2xl)
-- Soft shadows
-- Generous spacing
-- High contrast for readability
 
 ## Development
 
@@ -255,13 +216,9 @@ This project is a proof-of-concept. To extend it:
 4. **Enhanced preview**: Multiple device sizes
 5. **Code editing**: Allow modifying generated code
 
-## License
-
-ISC
 
 ## Acknowledgments
 
-- **Gaia Nodes** - AI infrastructure
+- **Gaia Nodes** - Decentralized AI Network with OpenAI Compatible APIs
 - **Sandpack** - In-browser bundling
 - **CodeSandbox** - Sandpack library
-- **Qwen** - Language model
