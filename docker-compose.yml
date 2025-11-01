@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  ai-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=${PORT:-3001}
+      - GAIA_API_KEY=${GAIA_API_KEY}
+      - GAIA_NODE_URL=${GAIA_NODE_URL:-https://qwen72b.gaia.domains/v1}
+      - GAIA_MODEL_NAME=${GAIA_MODEL_NAME:-Qwen3-30B-A3B-Q5_K_M}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

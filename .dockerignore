@@ -1,0 +1,44 @@
+# Node modules
+node_modules
+client/node_modules
+server/node_modules
+
+# Build outputs (will be generated during build)
+dist
+client/dist
+server/dist
+
+# Development files
+.git
+.gitignore
+.env
+.env.local
+*.log
+npm-debug.log*
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+*.md
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Testing
+coverage
+.nyc_output
+
+# Temporary files
+*.tmp
+.cache
