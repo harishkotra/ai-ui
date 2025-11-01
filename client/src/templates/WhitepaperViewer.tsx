@@ -46,12 +46,6 @@ export default function WhitepaperViewer({
     window.print();
   };
 
-  const copyLink = (id: string) => {
-    const url = `${window.location.href}#${id}`;
-    navigator.clipboard.writeText(url);
-    alert('Link copied to clipboard!');
-  };
-
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -198,7 +192,7 @@ export default function WhitepaperViewer({
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                h1: ({ children }) => (
+                h1: ({ children }: { children?: React.ReactNode }) => (
                   <h1 style={{
                     fontSize: '2.5rem',
                     fontWeight: '700',
@@ -208,7 +202,7 @@ export default function WhitepaperViewer({
                     fontFamily: "'Space Grotesk', sans-serif",
                   }}>{children}</h1>
                 ),
-                h2: ({ children }) => (
+                h2: ({ children }: { children?: React.ReactNode }) => (
                   <h2 style={{
                     fontSize: '2rem',
                     fontWeight: '600',
@@ -218,7 +212,7 @@ export default function WhitepaperViewer({
                     fontFamily: "'Space Grotesk', sans-serif",
                   }}>{children}</h2>
                 ),
-                h3: ({ children }) => (
+                h3: ({ children }: { children?: React.ReactNode }) => (
                   <h3 style={{
                     fontSize: '1.5rem',
                     fontWeight: '600',
@@ -227,10 +221,10 @@ export default function WhitepaperViewer({
                     color: '#93C5FD',
                   }}>{children}</h3>
                 ),
-                p: ({ children }) => (
+                p: ({ children }: { children?: React.ReactNode }) => (
                   <p style={{ marginBottom: '1rem' }}>{children}</p>
                 ),
-                a: ({ children, href }) => (
+                a: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
                   <a href={href} style={{
                     color: '#4F8AE6',
                     textDecoration: 'none',
@@ -240,7 +234,7 @@ export default function WhitepaperViewer({
                     {children}
                   </a>
                 ),
-                code: ({ inline, children }) => (
+                code: ({ inline, children }: { inline?: boolean; children?: React.ReactNode }) => (
                   inline ? (
                     <code style={{
                       background: '#1E293B',
@@ -262,7 +256,7 @@ export default function WhitepaperViewer({
                     }}>{children}</code>
                   )
                 ),
-                blockquote: ({ children }) => (
+                blockquote: ({ children }: { children?: React.ReactNode }) => (
                   <blockquote style={{
                     borderLeft: '4px solid #4F8AE6',
                     paddingLeft: '1rem',
@@ -271,13 +265,13 @@ export default function WhitepaperViewer({
                     color: '#94A3B8',
                   }}>{children}</blockquote>
                 ),
-                ul: ({ children }) => (
+                ul: ({ children }: { children?: React.ReactNode }) => (
                   <ul style={{ paddingLeft: '1.5rem', marginBottom: '1rem' }}>{children}</ul>
                 ),
-                ol: ({ children }) => (
+                ol: ({ children }: { children?: React.ReactNode }) => (
                   <ol style={{ paddingLeft: '1.5rem', marginBottom: '1rem' }}>{children}</ol>
                 ),
-                table: ({ children }) => (
+                table: ({ children }: { children?: React.ReactNode }) => (
                   <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
                     <table style={{
                       width: '100%',
@@ -287,7 +281,7 @@ export default function WhitepaperViewer({
                     }}>{children}</table>
                   </div>
                 ),
-                th: ({ children }) => (
+                th: ({ children }: { children?: React.ReactNode }) => (
                   <th style={{
                     padding: '0.75rem',
                     background: '#1E293B',
@@ -296,7 +290,7 @@ export default function WhitepaperViewer({
                     fontWeight: '600',
                   }}>{children}</th>
                 ),
-                td: ({ children }) => (
+                td: ({ children }: { children?: React.ReactNode }) => (
                   <td style={{
                     padding: '0.75rem',
                     borderBottom: '1px solid #334155',
