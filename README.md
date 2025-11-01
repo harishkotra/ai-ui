@@ -13,6 +13,11 @@ This application takes whitepaper content (text or markdown) as input and uses A
 - ♿ Full accessibility features
 - 🎨 Beautiful UI with Tailwind CSS, shadcn/ui components
 
+<img width="2139" height="1008" alt="1" src="https://github.com/user-attachments/assets/481ebc5a-52aa-4ce9-bb8e-c19a2b628f1d" />
+<img width="2140" height="1005" alt="2" src="https://github.com/user-attachments/assets/ecf81750-25d0-46c1-bd3e-a622152301c2" />
+<img width="2138" height="1006" alt="3" src="https://github.com/user-attachments/assets/7a3517e8-9a47-4245-8a95-4274acf08af6" />
+<img width="2141" height="1048" alt="4" src="https://github.com/user-attachments/assets/60ec28b9-d162-425b-9741-a0ec1242c92e" />
+
 ## Features
 
 ### 🎯 Core Capabilities
