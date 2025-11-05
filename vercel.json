@@ -3,6 +3,10 @@
   "outputDirectory": "client/dist",
   "installCommand": "npm install",
   "framework": null,
+  "rewrites": [
+    { "source": "/generate", "destination": "/api/generate" },
+    { "source": "/continue", "destination": "/api/continue" }
+  ],
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 60,
