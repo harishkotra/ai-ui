@@ -1,4 +1,3 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -28,15 +27,15 @@ DATE: [extracted date or leave blank]
 
 Keep all content. Fix formatting if needed. Use markdown headings (# ## ###), lists, tables, code blocks, etc.`;
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { whitepaper, previousResponse } = req.body;
+  const { whitepaper } = req.body;
 
-  if (!whitepaper || !previousResponse) {
-    return res.status(400).json({ error: 'Whitepaper and previous response are required' });
+  if (!whitepaper) {
+    return res.status(400).json({ error: 'Whitepaper content is required' });
   }
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -48,9 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       model: process.env.GAIA_MODEL_NAME || 'Qwen3-30B-A3B-Q5_K_M',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Extract metadata and format this whitepaper:\n\n${whitepaper}` },
-        { role: 'assistant', content: previousResponse },
-        { role: 'user', content: 'Continue from where you left off. Complete the content section.' }
+        { role: 'user', content: `Extract metadata and format this whitepaper:\n\n${whitepaper}` }
       ],
       stream: true,
       temperature: 0.3,
