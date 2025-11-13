@@ -20,6 +20,7 @@ function App() {
   const [startTime, setStartTime] = useState<number>(0);
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [waitTime, setWaitTime] = useState<number>(0);
+  const [pitchDeck, setPitchDeck] = useState<string>('');
 
   // Ref to store AbortController for cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -249,6 +250,9 @@ function App() {
         console.log('Cleaned pitch, removed', firstHeadingMatch.index, 'chars of analysis');
       }
 
+      // Store pitch deck for later use
+      setPitchDeck(cleanedPitch);
+
       // Generate the app from both responses
       const generatedFiles = generateWhitepaperApp(accumulated, cleanedPitch);
       console.log('Generated files:', Object.keys(generatedFiles));
@@ -338,7 +342,7 @@ function App() {
       }
 
       // Regenerate with continued content
-      const generatedFiles = generateWhitepaperApp(accumulated);
+      const generatedFiles = generateWhitepaperApp(accumulated, pitchDeck);
       setFiles(generatedFiles);
       setShowPreview(true);
       setGenerationTime(Date.now() - continueStartTime);
