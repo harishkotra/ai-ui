@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Sandpack } from '@codesandbox/sandpack-react';
 import { sandpackDark } from '@codesandbox/sandpack-themes';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { VIEWER_TEMPLATE } from './templates/ViewerTemplate';
 import './App.css';
 
 interface FileStructure {
@@ -18,9 +19,13 @@ function App() {
   const [generationTime, setGenerationTime] = useState<number>(0);
   const [startTime, setStartTime] = useState<number>(0);
   const [showCodePanel, setShowCodePanel] = useState(false);
+  const [waitTime, setWaitTime] = useState<number>(0);
 
-  const parseAIResponse = (response: string): { metadata: Record<string, string>; content: string } => {
-    console.log('Parsing AI response, length:', response.length);
+  // Ref to store AbortController for cancellation
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const parseWhitepaperResponse = (response: string): { metadata: Record<string, string>; content: string } => {
+    console.log('Parsing whitepaper response, length:', response.length);
 
     const metadata: Record<string, string> = {
       TITLE: 'Whitepaper',
@@ -31,7 +36,7 @@ function App() {
 
     let content = '';
 
-    // Try to extract metadata section
+    // Extract metadata section
     const metadataMatch = response.match(/---METADATA---([\s\S]*?)---CONTENT---/);
     if (metadataMatch) {
       const metadataSection = metadataMatch[1];
@@ -51,7 +56,6 @@ function App() {
     if (contentMatch) {
       content = contentMatch[1].trim();
     } else {
-      // Fallback: use everything after CONTENT marker
       const fallbackMatch = response.match(/---CONTENT---([\s\S]*)/);
       content = fallbackMatch ? fallbackMatch[1].trim() : response;
     }
@@ -62,138 +66,40 @@ function App() {
     return { metadata, content };
   };
 
-  const generateWhitepaperApp = (response: string): FileStructure => {
-    const { metadata, content } = parseAIResponse(response);
+  const generateWhitepaperApp = (whitepaperResponse: string, pitchResponse: string): FileStructure => {
+    const { metadata, content } = parseWhitepaperResponse(whitepaperResponse);
+    const pitch = pitchResponse.trim();
 
-    // Escape content for embedding in template string
-    const escapedContent = content
+    console.log('Generating whitepaper app with:', {
+      title: metadata.TITLE,
+      contentLength: content.length,
+      pitchLength: pitch.length
+    });
+
+    // Escape content for embedding in template literals
+    const escapeContent = (str: string) => str
       .replace(/\\/g, '\\\\')
       .replace(/`/g, '\\`')
-      .replace(/\$/g, '\\$');
+      .replace(/\$/g, '\\$')
+      .replace(/\r\n/g, '\\n')
+      .replace(/\n/g, '\\n');
 
-    // Use inline template instead of importing from file
-    const template = `import React, { useState } from 'react';
+    // Replace template markers with actual content
+    let appCode = VIEWER_TEMPLATE
+      .replace('{{CONTENT}}', escapeContent(content))
+      .replace('{{PITCH}}', escapeContent(pitch))
+      .replace('{{TITLE}}', metadata.TITLE.replace(/"/g, '\\"'))
+      .replace('{{SUBTITLE}}', metadata.SUBTITLE.replace(/"/g, '\\"'))
+      .replace('{{AUTHOR}}', metadata.AUTHOR.replace(/"/g, '\\"'))
+      .replace('{{DATE}}', metadata.DATE.replace(/"/g, '\\"'));
 
-export default function App() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showToc, setShowToc] = useState(true);
-
-  const content = \`${escapedContent}\`;
-  const title = "${metadata.TITLE}";
-  const subtitle = "${metadata.SUBTITLE}";
-  const author = "${metadata.AUTHOR}";
-  const date = "${metadata.DATE}";
-
-  // Extract headings for TOC
-  const headings = [];
-  const lines = content.split('\\n');
-  lines.forEach((line, index) => {
-    const match = line.match(/^(#{1,3})\\s+(.+)$/);
-    if (match) {
-      headings.push({ id: \`h\${index}\`, text: match[2], level: match[1].length });
-    }
-  });
-
-  const parseMarkdown = (text) => {
-    if (!text) return [];
-    if (searchQuery) {
-      text = text.split('\\n').filter(l => l.toLowerCase().includes(searchQuery.toLowerCase())).join('\\n');
-    }
-
-    // Helper to parse inline markdown (bold, italic)
-    const parseInline = (str) => {
-      if (!str) return str;
-      const parts = [];
-      let lastIndex = 0;
-
-      // Match **bold**, *italic*, \u0060code\u0060 (using unicode for backtick)
-      const regex = /(\\\\*\\\\*(.+?)\\\\*\\\\*)|(\\\\*(.+?)\\\\*)|((\\u0060)(.+?)(\\u0060))/g;
-      let match;
-
-      while ((match = regex.exec(str)) !== null) {
-        // Add text before match
-        if (match.index > lastIndex) {
-          parts.push(str.substring(lastIndex, match.index));
-        }
-
-        // Add formatted match
-        if (match[1]) { // **bold**
-          parts.push(<strong key={match.index} style={{ fontWeight: 'bold' }}>{match[2]}</strong>);
-        } else if (match[3]) { // *italic*
-          parts.push(<em key={match.index} style={{ fontStyle: 'italic' }}>{match[4]}</em>);
-        } else if (match[5]) { // \u0060code\u0060
-          parts.push(<code key={match.index} style={{ background: '#1E293B', padding: '0.2rem 0.4rem', borderRadius: '0.25rem', fontSize: '0.9em', color: '#93C5FD' }}>{match[7]}</code>);
-        }
-
-        lastIndex = regex.lastIndex;
-      }
-
-      // Add remaining text
-      if (lastIndex < str.length) {
-        parts.push(str.substring(lastIndex));
-      }
-
-      return parts.length > 0 ? parts : str;
-    };
-
-    return text.split('\\n').map((line, i) => {
-      if (line.startsWith('### ')) return <h3 key={i} style={{ fontSize: '1.5rem', color: '#93C5FD', marginTop: '1.5rem' }}>{parseInline(line.slice(4))}</h3>;
-      if (line.startsWith('## ')) return <h2 key={i} style={{ fontSize: '2rem', color: '#93C5FD', marginTop: '2rem' }}>{parseInline(line.slice(3))}</h2>;
-      if (line.startsWith('# ')) return <h1 key={i} style={{ fontSize: '2.5rem', color: '#E5E7EB', marginTop: '2rem' }}>{parseInline(line.slice(2))}</h1>;
-      if (line.startsWith('- ')) return <li key={i} style={{ marginLeft: '1.5rem' }}>{parseInline(line.slice(2))}</li>;
-      if (line.startsWith('> ')) return <blockquote key={i} style={{ borderLeft: '4px solid #4F8AE6', paddingLeft: '1rem', color: '#94A3B8' }}>{parseInline(line.slice(2))}</blockquote>;
-      if (line.trim() === '') return <br key={i} />;
-      return <p key={i} style={{ marginBottom: '1rem' }}>{parseInline(line)}</p>;
-    });
-  };
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#0B1220', color: '#E5E7EB', fontFamily: 'Inter, sans-serif' }}>
-      <header style={{ position: 'sticky', top: 0, background: 'linear-gradient(135deg, #0B1020, #1E40AF)', borderBottom: '2px solid #4F8AE6', padding: '1.5rem 2rem', zIndex: 100, display: 'flex', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem' }}>{title}</h1>
-          {subtitle && <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#93C5FD' }}>{subtitle}</p>}
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={() => setShowToc(!showToc)} style={{ padding: '0.5rem 1rem', background: '#334155', border: 'none', borderRadius: '0.5rem', color: '#E5E7EB', cursor: 'pointer' }}>
-            {showToc ? '📖 Hide TOC' : '📖 Show TOC'}
-          </button>
-          <button onClick={() => window.print()} style={{ padding: '0.5rem 1rem', background: '#334155', border: 'none', borderRadius: '0.5rem', color: '#E5E7EB', cursor: 'pointer' }}>📥 PDF</button>
-        </div>
-      </header>
-      <div style={{ display: 'flex' }}>
-        {showToc && (
-          <aside style={{ width: '280px', background: '#0F172A', borderRight: '1px solid #334155', padding: '1.5rem', maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}>
-            <h2 style={{ fontSize: '1rem', color: '#93C5FD', marginBottom: '1rem' }}>📑 Contents</h2>
-            {headings.map(h => (
-              <a key={h.id} href={\`#\${h.id}\`} style={{ display: 'block', padding: '0.5rem', paddingLeft: \`\${(h.level-1)*16}px\`, color: '#94A3B8', textDecoration: 'none', fontSize: h.level === 1 ? '0.9rem' : '0.85rem' }}>{h.text}</a>
-            ))}
-          </aside>
-        )}
-        <main style={{ flex: 1, padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
-          <input type="text" placeholder="🔍 Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '0.75rem 1rem', marginBottom: '2rem', background: '#0F172A', border: '1px solid #334155', borderRadius: '0.5rem', color: '#E5E7EB' }} />
-          {(author || date) && (
-            <div style={{ padding: '1rem', background: '#0F172A', borderRadius: '0.5rem', marginBottom: '2rem', fontSize: '0.875rem', color: '#94A3B8' }}>
-              {author && <div>✍️ <strong>Author:</strong> {author}</div>}
-              {date && <div>📅 <strong>Date:</strong> {date}</div>}
-            </div>
-          )}
-          <article style={{ lineHeight: '1.75' }}>{parseMarkdown(content)}</article>
-        </main>
-      </div>
-      <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ position: 'fixed', bottom: '2rem', right: '2rem', background: '#4F8AE6', color: 'white', border: 'none', borderRadius: '50%', width: '3rem', height: '3rem', fontSize: '1.5rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(79,138,230,0.4)' }}>↑</button>
-    </div>
-  );
-}`;
-
-    console.log('Generated app template, length:', template.length);
+    console.log('Generated app code, length:', appCode.length);
 
     return {
-      '/App.js': template  // Sandpack expects .js not .tsx for the react template
+      '/App.js': appCode
     };
   };
 
-  // Helper to get content size info
   const getContentSizeInfo = () => {
     const chars = whitepaper.length;
     const kb = (chars / 1024).toFixed(1);
@@ -220,152 +126,234 @@ export default function App() {
     setShowPreview(false);
     setStartTime(Date.now());
     setGenerationTime(0);
+    setWaitTime(0);
+
+    // Update wait time every second for UI feedback
+    const waitInterval = setInterval(() => {
+      setWaitTime(prev => prev + 1);
+    }, 1000);
+
+    // Show warning about potential delay
+    let timeoutWarning: NodeJS.Timeout | null = null;
+    timeoutWarning = setTimeout(() => {
+      console.warn('GaiaNet node is taking longer than expected. The remote AI node may be slow or busy.');
+    }, 10000);
 
     try {
+      abortControllerRef.current = new AbortController();
+      const timeout = setTimeout(() => {
+        abortControllerRef.current?.abort();
+      }, 300000); // 5 minute absolute timeout
+
       const response = await fetch('/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ whitepaper }),
+        signal: abortControllerRef.current.signal,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      clearTimeout(timeout);
+      clearInterval(waitInterval);
+      if (timeoutWarning) clearTimeout(timeoutWarning);
 
-      const reader = response.body?.getReader();
+      if (!response.ok) throw new Error('Generation failed');
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let accumulatedCode = '';
+      let accumulated = '';
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') {
-                const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-                setGenerationTime(parseFloat(elapsed));
-                setIsGenerating(false);
-                setShowPreview(true);
-                console.log(`Generation complete in ${elapsed}s`);
-                continue;
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              console.log('Stream complete');
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                accumulated += parsed.content;
+                setGeneratedCode(accumulated);
               }
-
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.content) {
-                  accumulatedCode += parsed.content;
-                  setGeneratedCode(accumulatedCode);
-
-                  // Generate whitepaper app from AI response
-                  try {
-                    const appFiles = generateWhitepaperApp(accumulatedCode);
-                    if (Object.keys(appFiles).length > 0) {
-                      setFiles(appFiles);
-                      // Update the code display to show the generated app, not AI response
-                      setGeneratedCode(appFiles['/App.js'] || accumulatedCode);
-                      setShowPreview(true);
-                    }
-                  } catch (e) {
-                    console.error('Error generating app:', e);
-                  }
-                }
-              } catch (e) {
-                // Ignore parse errors for incomplete JSON
-              }
+            } catch (e) {
+              console.error('Parse error:', e);
             }
           }
         }
       }
+
+      console.log('Whitepaper response length:', accumulated.length);
+      setGeneratedCode(accumulated);
+
+      // Now generate the pitch deck
+      console.log('Generating pitch deck...');
+      const pitchResponse = await fetch('/generate-pitch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whitepaper }),
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!pitchResponse.ok) throw new Error('Pitch generation failed');
+      if (!pitchResponse.body) throw new Error('No pitch response body');
+
+      const pitchReader = pitchResponse.body.getReader();
+      const pitchDecoder = new TextDecoder();
+      let pitchAccumulated = '';
+
+      while (true) {
+        const { value, done } = await pitchReader.read();
+        if (done) break;
+
+        const chunk = pitchDecoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              console.log('Pitch stream complete');
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                pitchAccumulated += parsed.content;
+              }
+            } catch (e) {
+              console.error('Pitch parse error:', e);
+            }
+          }
+        }
+      }
+
+      console.log('Pitch response length:', pitchAccumulated.length);
+
+      // Clean pitch response - remove any analysis/thinking text before actual content
+      let cleanedPitch = pitchAccumulated;
+
+      // Find where the actual pitch content starts (first # heading)
+      const firstHeadingMatch = pitchAccumulated.match(/^#\s+/m);
+      if (firstHeadingMatch && firstHeadingMatch.index) {
+        cleanedPitch = pitchAccumulated.substring(firstHeadingMatch.index);
+        console.log('Cleaned pitch, removed', firstHeadingMatch.index, 'chars of analysis');
+      }
+
+      // Generate the app from both responses
+      const generatedFiles = generateWhitepaperApp(accumulated, cleanedPitch);
+      console.log('Generated files:', Object.keys(generatedFiles));
+
+      setFiles(generatedFiles);
+      setShowPreview(true);
+      setGenerationTime(Date.now() - startTime);
+
     } catch (error) {
-      console.error('Error generating:', error);
-      alert('Error generating app. Please try again.');
+      console.error('Generation error:', error);
+      clearInterval(waitInterval);
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Check if it was manually cancelled or timed out
+        if (waitTime >= 300) {
+          alert('Generation timed out after 5 minutes. The GaiaNet node may be overloaded. Please try again later.');
+        } else {
+          console.log('Generation cancelled by user');
+        }
+      } else {
+        alert('Failed to generate whitepaper app. Please try again.');
+      }
+    } finally {
       setIsGenerating(false);
+      setWaitTime(0);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsGenerating(false);
+      setWaitTime(0);
+      abortControllerRef.current = null;
     }
   };
 
   const handleContinue = async () => {
     if (!generatedCode) {
-      alert('No previous code to continue from');
+      alert('No previous generation to continue from');
       return;
     }
 
-    console.log('Continue clicked, previous code length:', generatedCode.length);
     setIsGenerating(true);
+    const continueStartTime = Date.now();
 
     try {
       const response = await fetch('/continue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ whitepaper, previousResponse: generatedCode }),
+        body: JSON.stringify({
+          whitepaper,
+          previousResponse: generatedCode,
+        }),
       });
 
-      console.log('Continue response status:', response.status);
+      if (!response.ok) throw new Error('Continue failed');
+      if (!response.body) throw new Error('No response body');
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const reader = response.body?.getReader();
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let accumulatedCode = generatedCode;
+      let accumulated = generatedCode;
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') {
-                setIsGenerating(false);
-                continue;
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') break;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                accumulated += parsed.content;
+                setGeneratedCode(accumulated);
               }
-
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.content) {
-                  accumulatedCode += parsed.content;
-                  setGeneratedCode(accumulatedCode);
-
-                  try {
-                    const appFiles = generateWhitepaperApp(accumulatedCode);
-                    if (Object.keys(appFiles).length > 0) {
-                      setFiles(appFiles);
-                      // Update the code display to show the generated app
-                      setGeneratedCode(appFiles['/App.js'] || accumulatedCode);
-                      setShowPreview(true);
-                    }
-                  } catch (e) {
-                    console.error('Error generating app:', e);
-                  }
-                }
-              } catch (e) {
-                // Ignore parse errors
-              }
+            } catch (e) {
+              console.error('Parse error:', e);
             }
           }
         }
       }
+
+      // Regenerate with continued content
+      const generatedFiles = generateWhitepaperApp(accumulated);
+      setFiles(generatedFiles);
+      setShowPreview(true);
+      setGenerationTime(Date.now() - continueStartTime);
+
     } catch (error) {
-      console.error('Error continuing:', error);
-      alert('Error continuing generation. Please try again.');
+      console.error('Continue error:', error);
+      alert('Failed to continue generation. Please try again.');
+    } finally {
       setIsGenerating(false);
     }
   };
 
   const handleDownload = async () => {
     if (Object.keys(files).length === 0) {
-      alert('No code to download. Generate an app first!');
+      alert('No files to download');
       return;
     }
 
@@ -373,7 +361,6 @@ export default function App() {
 
     // Add generated files
     Object.entries(files).forEach(([path, content]) => {
-      // Remove leading slash for cleaner paths
       const cleanPath = path.startsWith('/') ? path.slice(1) : path;
       zip.file(cleanPath, content);
     });
@@ -382,7 +369,7 @@ export default function App() {
     const packageJson = {
       name: 'whitepaper-viewer',
       version: '1.0.0',
-      description: 'Generated whitepaper viewer app',
+      description: 'Generated whitepaper viewer powered by GaiaNet',
       scripts: {
         dev: 'vite',
         build: 'vite build',
@@ -390,7 +377,9 @@ export default function App() {
       },
       dependencies: {
         react: '^18.2.0',
-        'react-dom': '^18.2.0'
+        'react-dom': '^18.2.0',
+        'react-markdown': '^9.0.1',
+        'remark-gfm': '^4.0.0'
       },
       devDependencies: {
         '@vitejs/plugin-react': '^4.2.0',
@@ -426,7 +415,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 );`;
     zip.file('src/main.jsx', mainJsx);
 
-    // Add vite.config.js
+    // Add vite config
     const viteConfig = `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -436,36 +425,23 @@ export default defineConfig({
     zip.file('vite.config.js', viteConfig);
 
     // Add README
-    const readme = `# Whitepaper Viewer App
+    const readme = `# Whitepaper Viewer
 
-Generated by AI Whitepaper App Generator
-Built by Harish Kotra
+Generated by AI Whitepaper Generator
+Powered by [GaiaNet](https://gaianet.ai) decentralized AI
 
 ## Setup
 
-1. Install dependencies:
-   \`\`\`
-   npm install
-   \`\`\`
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
 
-2. Run development server:
-   \`\`\`
-   npm run dev
-   \`\`\`
+## Build
 
-3. Build for production:
-   \`\`\`
-   npm run build
-   \`\`\`
-
-## Features
-
-- Dark/blue theme design
-- Table of contents with auto-generated headings
-- Search functionality
-- PDF export (via browser print)
-- Responsive layout
-- Back to top button
+\`\`\`bash
+npm run build
+\`\`\`
 `;
     zip.file('README.md', readme);
 
@@ -479,8 +455,8 @@ Built by Harish Kotra
       {/* Header */}
       <header className="header">
         <div>
-          <h1>🚀 AI Whitepaper App Generator</h1>
-          <p>Powered by <a href="https://gaianet.ai/?ref=ai-ui" target="_blank">Gaia Nodes</a></p>
+          <h1>🚀 AI Whitepaper Generator</h1>
+          <p>Powered by <a href="https://gaianet.ai/?ref=ai-ui" target="_blank" rel="noopener noreferrer">GaiaNet</a> decentralized AI nodes</p>
         </div>
         <button
           onClick={() => setShowCodePanel(!showCodePanel)}
@@ -500,14 +476,13 @@ Built by Harish Kotra
             {whitepaper && (
               <span className={`char-count ${getContentSizeInfo().isLarge ? 'warning' : ''}`}>
                 {getContentSizeInfo().kb} KB
-                {getContentSizeInfo().isLarge && ' ⚠️'}
               </span>
             )}
           </div>
           <textarea
             value={whitepaper}
             onChange={(e) => setWhitepaper(e.target.value)}
-            placeholder="Paste your whitepaper content here (text or markdown)..."
+            placeholder="Paste your whitepaper content here... (Markdown supported)"
             disabled={isGenerating}
           />
           <div className="button-group">
@@ -518,13 +493,26 @@ Built by Harish Kotra
             >
               {isGenerating ? (
                 <>
-                  <span className="spinner"></span>
-                  Generating...
+                  <span className="spinner"></span> {
+                    waitTime > 30
+                      ? `Still waiting... (${waitTime}s)`
+                      : waitTime > 15
+                        ? 'Waiting for GaiaNet node...'
+                        : 'Generating...'
+                  }
                 </>
               ) : (
-                '✨ Generate App'
+                <>⚡ Generate App</>
               )}
             </button>
+            {isGenerating && (
+              <button
+                onClick={handleCancel}
+                className="cancel-btn"
+              >
+                ✕ Cancel
+              </button>
+            )}
             {generatedCode && (
               <button
                 onClick={handleContinue}
@@ -535,40 +523,39 @@ Built by Harish Kotra
               </button>
             )}
           </div>
+          {generationTime > 0 && (
+            <div style={{ padding: '0.5rem 1.5rem', fontSize: '0.875rem', color: '#30E000' }}>
+              ✓ Generated in {(generationTime / 1000).toFixed(1)}s
+            </div>
+          )}
         </div>
 
-        {/* Middle Panel - Generated Code (Toggleable) */}
+        {/* Middle Panel - Code (optional) */}
         {showCodePanel && (
           <div className="code-panel">
             <div className="panel-header">
-              <h2>💻 Generated Code</h2>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                {generationTime > 0 && (
-                  <span className="char-count" style={{ background: '#10B981' }}>
-                    ⚡ {generationTime}s
-                  </span>
-                )}
-                <span className="file-count">
-                  {Object.keys(files).length} {Object.keys(files).length === 1 ? 'file' : 'files'}
-                </span>
-              </div>
+              <h2>🔧 Generated Code</h2>
+              {generatedCode && (
+                <span className="char-count">{(generatedCode.length / 1024).toFixed(1)} KB</span>
+              )}
             </div>
             <div className="code-display">
               {generatedCode ? (
                 <pre>{generatedCode}</pre>
               ) : (
                 <div className="empty-state">
-                  <p>Generated code will appear here...</p>
+                  <p>No code generated yet</p>
+                  <p className="hint">Click "Generate App" to start</p>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Right Panel - Live Preview */}
+        {/* Right Panel - Preview */}
         <div className="preview-panel">
           <div className="panel-header">
-            <h2>🎨 Live Preview</h2>
+            <h2>👁️ Live Preview</h2>
             {Object.keys(files).length > 0 && (
               <button
                 onClick={handleDownload}
@@ -585,43 +572,46 @@ Built by Harish Kotra
                 theme={sandpackDark}
                 template="react"
                 files={files}
+                customSetup={{
+                  dependencies: {
+                    'markdown-to-jsx': '^7.4.0',
+                  },
+                }}
                 options={{
                   showNavigator: false,
-                  showTabs: true,
-                  showLineNumbers: true,
+                  showTabs: false,
+                  showLineNumbers: false,
                   editorHeight: '100%',
-                  editorWidthPercentage: 50,
+                  editorWidthPercentage: 0,
+                  showConsole: false,
+                  showConsoleButton: false,
                 }}
               />
             ) : (
               <div className="empty-state">
                 {isGenerating ? (
                   <>
-                    <p>⏳ Generating your whitepaper app...</p>
-                    <p className="hint">Watch the code appear in the middle panel →</p>
-                    {generatedCode && Object.keys(files).length === 0 && (
-                      <p className="hint warning">
-                        ⚠️ Code generated but no files parsed yet.
-                        <br />
-                        Check console (F12) for parsing details.
-                      </p>
-                    )}
+                    <p>⏳ Generating your whitepaper app... ({waitTime}s)</p>
+                    <p className="hint">
+                      {waitTime > 60
+                        ? '⚠️ GaiaNet node is very slow. Please wait or try again later.'
+                        : waitTime > 30
+                          ? '⚠️ Taking longer than expected. The AI node may be busy.'
+                          : waitTime > 15
+                            ? 'Waiting for GaiaNet AI node to respond...'
+                            : 'This may take 10-90 seconds depending on node speed'
+                      }
+                    </p>
                   </>
                 ) : generatedCode && Object.keys(files).length === 0 ? (
                   <>
                     <p>⚠️ Code generated but couldn't parse files</p>
-                    <p className="hint">
-                      The AI may have used an unexpected format.
-                      <br />
-                      Check browser console (F12) for details.
-                      <br />
-                      Try clicking "Continue Generation" to get more code.
-                    </p>
+                    <p className="hint">Try clicking "Continue Generation"</p>
                   </>
                 ) : (
                   <>
-                    <p>Live preview will appear here...</p>
-                    <p className="hint">👆 Enter whitepaper and click Generate</p>
+                    <p>📄 No preview yet</p>
+                    <p className="hint">Enter whitepaper content and click "Generate App"</p>
                   </>
                 )}
               </div>
@@ -629,13 +619,6 @@ Built by Harish Kotra
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="footer">
-        <p>
-          Built by <a href="https://github.com/harishkotra" target="_blank" rel="noopener noreferrer">Harish Kotra</a>
-        </p>
-      </footer>
     </div>
   );
 }

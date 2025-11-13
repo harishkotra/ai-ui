@@ -12,7 +12,7 @@
     "client:dev": "cd client && npm run dev",
     "client:build": "cd client && npm run build",
     "server:build": "tsc -p server/tsconfig.json",
-    "server:dev": "nodemon --watch server --exec \"node --loader ts-node/esm server/server.ts\"",
+    "server:dev": "nodemon --watch server --ext ts --exec \"tsc -p server/tsconfig.json && node server/dist/server.js\"",
     "server:start": "node server/dist/server.js",
     "build": "npm run server:build && npm run client:build"
   },
@@ -31,7 +31,7 @@
     "@types/react-dom": "^18.3.5",
     "@vercel/node": "^3.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "concurrently": "^9.1.2",
+    "concurrently": "^9.2.1",
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",

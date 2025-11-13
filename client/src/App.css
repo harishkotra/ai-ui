@@ -15,10 +15,10 @@
 
 /* Header */
 .header {
-  background: linear-gradient(135deg, #0B1020 0%, #1E40AF 100%);
+  background: linear-gradient(135deg, #0B1020 0%, #0E76FD 100%);
   padding: 1.5rem 2rem;
-  border-bottom: 2px solid #4F8AE6;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  border-bottom: 2px solid #0E76FD;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -37,31 +37,46 @@
 .header p {
   margin: 0.25rem 0 0;
   font-size: 0.875rem;
-  color: #93C5FD;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.header a {
+  color: #FFF;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.header a:hover {
+  color: #FFD641;
+  text-decoration: underline;
 }
 
 .toggle-code-btn {
   padding: 0.5rem 1rem !important;
-  background: #334155 !important;
-  color: #93C5FD !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #FFF !important;
   font-size: 0.875rem !important;
+  border-radius: 12px !important;
 }
 
 .toggle-code-btn:hover {
-  background: #475569 !important;
-  box-shadow: 0 4px 12px rgba(147, 197, 253, 0.2) !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 12px rgba(14, 118, 253, 0.3) !important;
 }
 
 .download-btn {
   padding: 0.5rem 1rem !important;
-  background: #10B981 !important;
-  color: white !important;
+  background: #30E000 !important;
+  color: #25292E !important;
   font-size: 0.875rem !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
 }
 
 .download-btn:hover {
-  background: #059669 !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+  background: #28C700 !important;
+  box-shadow: 0 4px 12px rgba(48, 224, 0, 0.3) !important;
 }
 
 /* Main Content - Split View */
@@ -113,7 +128,7 @@
 .char-count {
   font-size: 0.75rem;
   padding: 0.25rem 0.75rem;
-  background: #4F8AE6;
+  background: #0E76FD;
   border-radius: 12px;
   color: white;
   font-weight: 600;
@@ -124,7 +139,8 @@
 }
 
 .char-count.warning {
-  background: #F59E0B;
+  background: #FFD641;
+  color: #25292E;
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -179,15 +195,16 @@ button {
 }
 
 .generate-btn {
-  background: linear-gradient(135deg, #4F8AE6 0%, #1E40AF 100%);
+  background: #0E76FD;
   color: white;
   flex: 1;
   justify-content: center;
+  border-radius: 12px;
 }
 
 .generate-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5A95F5 0%, #2850CC 100%);
-  box-shadow: 0 4px 12px rgba(79, 138, 230, 0.4);
+  background: #0A5FD9;
+  box-shadow: 0 8px 32px rgba(14, 118, 253, 0.4);
   transform: translateY(-1px);
 }
 
@@ -199,17 +216,29 @@ button {
 
 .continue-btn {
   background: #334155;
-  color: #93C5FD;
+  color: #FFF;
+  border-radius: 12px;
 }
 
 .continue-btn:hover:not(:disabled) {
   background: #475569;
-  box-shadow: 0 4px 12px rgba(147, 197, 253, 0.2);
+  box-shadow: 0 4px 12px rgba(14, 118, 253, 0.2);
 }
 
 .continue-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.cancel-btn {
+  background: #EF4444;
+  color: #FFF;
+  border-radius: 12px;
+}
+
+.cancel-btn:hover {
+  background: #DC2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 /* Code Panel */
@@ -260,7 +289,7 @@ button {
 }
 
 .empty-state .hint.warning {
-  color: #F59E0B;
+  color: #FFD641;
   font-weight: 600;
 }
 
@@ -365,13 +394,13 @@ button {
 }
 
 .footer a {
-  color: #4F8AE6;
+  color: #0E76FD;
   text-decoration: none;
   font-weight: 600;
   transition: color 0.2s ease;
 }
 
 .footer a:hover {
-  color: #5A95F5;
+  color: #0A5FD9;
   text-decoration: underline;
 }
