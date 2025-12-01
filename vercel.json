@@ -5,6 +5,7 @@
   "framework": null,
   "rewrites": [
     { "source": "/generate", "destination": "/api/generate" },
+    { "source": "/generate-pitch", "destination": "/api/generate-pitch" },
     { "source": "/continue", "destination": "/api/continue" }
   ],
   "functions": {
