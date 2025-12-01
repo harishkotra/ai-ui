@@ -304,7 +304,7 @@ export default function App() {
       </button>
 
       <footer style={{ textAlign: 'center', padding: '3rem 2rem', color: '#6B7280', fontSize: '0.875rem', borderTop: '1px solid #E5E7EB', marginTop: '4rem', background: '#FFFFFF' }}>
-        Powered by <a href="https://gaianet.ai" target="_blank" rel="noopener noreferrer" style={{ color: '#8B5CF6', textDecoration: 'none', fontWeight: '600', transition: 'color 0.2s' }}>GaiaNet</a> decentralized AI
+        Powered by <a href="https://gaianet.ai" target="_blank" rel="noopener noreferrer" style={{ color: '#8B5CF6', textDecoration: 'none', fontWeight: '600', transition: 'color 0.2s' }}>Gaia</a> decentralized AI
       </footer>
 
       <style>{\`
